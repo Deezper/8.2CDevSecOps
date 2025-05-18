@@ -1,0 +1,71 @@
+pipeline {
+    agent any
+
+    environment {
+        EMAIL_RECIPIENT = 'dulanaperera77@gmail.com'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/Deezper/8.2CDevSecOps.git'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                bat 'npm install'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                script {
+                    try {
+                        bat 'npm test'
+                    } catch (err) {
+                        emailext(
+                            to: "${env.EMAIL_RECIPIENT}",
+                            subject: "❌ Test Stage Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                            body: """Hi Dulana,<br><br>The <b>test stage</b> of the pipeline has failed.<br>
+                                     Please check the Jenkins logs for more details.<br><br>Thanks,<br>Jenkins""",
+                            attachLog: true
+                        )
+                        error("Test stage failed")
+                    }
+                }
+            }
+        }
+
+        stage('NPM Audit (Security Scan)') {
+            steps {
+                script {
+                    try {
+                        bat 'npm audit || exit 0'
+                    } catch (err) {
+                        emailext(
+                            to: "${env.EMAIL_RECIPIENT}",
+                            subject: "❌ Security Scan Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                            body: """Hi Dulana,<br><br>The <b>security scan stage</b> failed.<br>
+                                     Please review the audit logs and address critical issues.<br><br>Thanks,<br>Jenkins""",
+                            attachLog: true
+                        )
+                        error("Security scan failed")
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            emailext(
+                to: "${env.EMAIL_RECIPIENT}",
+                subject: "✅ Pipeline Completed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """Hi Dulana,<br><br>Your Jenkins pipeline has completed.<br>
+                         Check the attached logs or view the console output for details.<br><br>Thanks,<br>Jenkins""",
+                attachLog: true
+            )
+        }
+    }
+}
